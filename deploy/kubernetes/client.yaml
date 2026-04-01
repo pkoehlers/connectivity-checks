@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connectivity-client
+  labels:
+    app: connectivity-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connectivity-client
+  template:
+    metadata:
+      labels:
+        app: connectivity-client
+    spec:
+      containers:
+        - name: client
+          image: connectivity-client:latest
+          args:
+            - "--server=http://connectivity-server:8080"
+            - "--name=in-cluster"
+            - "--interval=1s"
+            - "--reset"
+          resources:
+            requests:
+              cpu: 5m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi

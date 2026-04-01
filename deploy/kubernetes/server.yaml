@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connectivity-server
+  labels:
+    app: connectivity-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connectivity-server
+  template:
+    metadata:
+      labels:
+        app: connectivity-server
+    spec:
+      containers:
+        - name: server
+          image: connectivity-server:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          args:
+            - "--port=8080"
+            - "--log-level=info"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connectivity-server
+  labels:
+    app: connectivity-server
+spec:
+  selector:
+    app: connectivity-server
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http

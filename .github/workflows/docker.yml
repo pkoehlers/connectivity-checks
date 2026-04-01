@@ -1,0 +1,83 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "connectivity/v*"
+    paths:
+      - "connectivity-checks/**"
+      - "!connectivity-checks/PLAN.md"
+      - "!connectivity-checks/README.md"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "connectivity-checks/**"
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: pkoehlers
+
+jobs:
+  build-and-push:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: connectivity-server
+            dockerfile: Dockerfile.server
+            image: ghcr.io/pkoehlers/connectivity-server
+          - name: connectivity-client
+            dockerfile: Dockerfile.client
+            image: ghcr.io/pkoehlers/connectivity-client
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}},value=${{ github.ref_name }},enable=${{ startsWith(github.ref, 'refs/tags/connectivity/v') }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ github.ref_name }},enable=${{ startsWith(github.ref, 'refs/tags/connectivity/v') }}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: connectivity-checks
+          file: connectivity-checks/${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
