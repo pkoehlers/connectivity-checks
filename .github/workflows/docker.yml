@@ -1,20 +1,27 @@
 name: Build and Push Docker Images
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
     tags:
-      - "connectivity/v*"
+      - "v*"
     paths:
-      - "connectivity-checks/**"
-      - "!connectivity-checks/PLAN.md"
-      - "!connectivity-checks/README.md"
+      - "cmd/**"
+      - "internal/**"
+      - "Dockerfile.*"
+      - "go.mod"
+      - "go.sum"
   pull_request:
     branches:
       - main
     paths:
-      - "connectivity-checks/**"
+      - "cmd/**"
+      - "internal/**"
+      - "Dockerfile.*"
+      - "go.mod"
+      - "go.sum"
 
 env:
   REGISTRY: ghcr.io
@@ -65,16 +72,16 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern={{version}},value=${{ github.ref_name }},enable=${{ startsWith(github.ref, 'refs/tags/connectivity/v') }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ github.ref_name }},enable=${{ startsWith(github.ref, 'refs/tags/connectivity/v') }}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=sha,prefix=sha-,format=short
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: connectivity-checks
-          file: connectivity-checks/${{ matrix.dockerfile }}
+          context: .
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
